@@ -2,4 +2,4 @@
 
 This repository contains the API specification used for the PITAS auction house.
 
-The OpenAPI document is automatically rendered in this repos GitHub Pages.
+The OpenAPI document is automatically rendered to GitHub Pages.
