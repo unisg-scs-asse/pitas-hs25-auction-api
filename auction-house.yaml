@@ -1,59 +1,31 @@
-openapi: 3.0.3
+openapi: 3.1.1
 info:
-  title: Auction API
-  description: API specification for the auction platform
-  version: 1
+  title: "Auction API"
+  description: "API specification for the auction platform"
+  version: "1"
   license:
-    name: GPL-3.0-only
-    url: https://opensource.org/license/gpl-3-0
+    name: "GPL-3.0-only"
+    url: "https://opensource.org/license/gpl-3-0"
 
 servers:
-  - url: https://api.example.com/v1
-    description: Production server
-  - url: https://staging-api.example.com/v1
-    description: Staging server
-  - url: http://localhost:3000/v1
-    description: Local development server
+  - url: "http://localhost:8080/"
+    description: Local Development
 
 tags:
-  - name: auctions
-    description: Auction management endpoints
-  - name: bids
-    description: Bid management endpoints
+  - name: Auctions
+    description: Auction management endpoints. From the perspective of an auctioneer.
+  - name: Bidders
+    description: Bidder management endpoints. From the prespective of a bidder.
 
 paths:
   /auctions:
     get:
       tags:
-        - auctions
-      summary: List all auctions
-      description: Retrieve a list of all auctions with optional filtering
-      operationId: listAuctions
+        - Auctions
+      summary: Retrieve open auctions
+      description: Retrieve a list of all open auctions from this group
       parameters:
-        - name: status
-          in: query
-          description: Filter by auction status
-          required: false
-          schema:
-            type: string
-            enum: [active, completed, cancelled]
-        - name: page
-          in: query
-          description: Page number for pagination
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          description: Number of items per page
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
+        - $ref: '#/components/parameters/ApiVersion'
       responses:
         '200':
           description: Successful response
@@ -62,53 +34,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
+                  auctions:
                     type: array
                     items:
                       $ref: '#/components/schemas/Auction'
-                  pagination:
-                    $ref: '#/components/schemas/Pagination'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    post:
-      tags:
-        - auctions
-      summary: Create a new auction
-      description: Create a new auction with the provided details
-      operationId: createAuction
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateAuctionRequest'
-      responses:
-        '201':
-          description: Auction created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Auction'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
   /auctions/{auctionId}:
     get:
       tags:
-        - auctions
-      summary: Get auction by ID
-      description: Retrieve detailed information about a specific auction
-      operationId: getAuctionById
+        - Auctions
+      summary: Retrieve auction
+      description: Retrieve one auction
       parameters:
+        - $ref: '#/components/parameters/ApiVersion'
         - name: auctionId
           in: path
           required: true
@@ -127,122 +67,47 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-    put:
-      tags:
-        - auctions
-      summary: Update an auction
-      description: Update an existing auction
-      operationId: updateAuction
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: auctionId
-          in: path
-          required: true
-          description: Unique identifier of the auction
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateAuctionRequest'
-      responses:
-        '200':
-          description: Auction updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Auction'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    delete:
-      tags:
-        - auctions
-      summary: Delete an auction
-      description: Delete an auction by ID
-      operationId: deleteAuction
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: auctionId
-          in: path
-          required: true
-          description: Unique identifier of the auction
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: Auction deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /auctions/{auctionId}/bids:
-    get:
-      tags:
-        - bids
-      summary: Get bids for an auction
-      description: Retrieve all bids for a specific auction
-      operationId: getAuctionBids
-      parameters:
-        - name: auctionId
-          in: path
-          required: true
-          description: Unique identifier of the auction
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Bid'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
+  /auctions/{auctionId}/job:
     post:
       tags:
-        - bids
-      summary: Place a bid
-      description: Place a new bid on an auction
-      operationId: placeBid
-      security:
-        - bearerAuth: []
+        - Auctions
+      summary: Job executed
+      description: The bid for a specific auction was won. The auctionId is specified in the request body
       parameters:
-        - name: auctionId
-          in: path
-          required: true
-          description: Unique identifier of the auction
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/ApiVersion'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PlaceBidRequest'
+              $ref: '#/components/schemas/Job'
+      responses:
+        '201':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auctions/{auctionId}/bid:
+    post:
+      tags:
+        - Auctions
+      summary: Place bid for auction
+      description: Place a new bid for the specified auction. The auctionId is specified in the request body.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Bid'
       responses:
         '201':
           description: Bid placed successfully
@@ -252,343 +117,161 @@ paths:
                 $ref: '#/components/schemas/Bid'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /users/me:
-    get:
-      tags:
-        - users
-      summary: Get current user profile
-      description: Retrieve the profile of the authenticated user
-      operationId: getCurrentUser
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /auth/login:
+  /bidders:
     post:
       tags:
-        - authentication
-      summary: User login
-      description: Authenticate a user and return a JWT token
-      operationId: login
+        - Bidders
+      summary: Auction started
+      description: Notification from other group that a new auction started
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Login successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /auth/register:
-    post:
-      tags:
-        - authentication
-      summary: User registration
-      description: Register a new user account
-      operationId: register
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: '#/components/schemas/Auction'
       responses:
         '201':
-          description: Registration successful
+          description: Auction created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
+                $ref: '#/components/schemas/Auction'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /bidders/{auctionId}/job:
+    post:
+      tags:
+        - Bidders
+      summary: Bid for auction won
+      description: The bid for a specific auction was won. The auctionId is specified in the request body
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Job'
+      responses:
+        '201':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
+  parameters:
+    ApiVersion:
+      name: X-API-Version
+      in: header
+      required: true
+      description: API version
+      schema:
+        type: string
+        example: "1"
+  
   schemas:
     Auction:
       type: object
       required:
-        - id
-        - title
-        - description
-        - startingPrice
-        - currentPrice
-        - startTime
-        - endTime
         - status
-        - sellerId
+        - auctionId
+        - auctionHouseUri
+        - jobType
+        - deadline
       properties:
-        id:
-          type: string
-          format: uuid
-          description: Unique identifier for the auction
-        title:
-          type: string
-          description: Title of the auction
-          example: "Vintage Camera"
-        description:
-          type: string
-          description: Detailed description of the item
-          example: "Rare vintage camera from the 1960s in excellent condition"
-        startingPrice:
-          type: number
-          format: double
-          minimum: 0
-          description: Starting price for the auction
-          example: 100.00
-        currentPrice:
-          type: number
-          format: double
-          minimum: 0
-          description: Current highest bid
-          example: 150.00
-        startTime:
-          type: string
-          format: date-time
-          description: Auction start time
-        endTime:
-          type: string
-          format: date-time
-          description: Auction end time
         status:
           type: string
-          enum: [active, completed, cancelled]
+          enum: [OPEN, CLOSED]
           description: Current status of the auction
-        sellerId:
+        auctionId:
           type: string
           format: uuid
-          description: ID of the user who created the auction
-        images:
-          type: array
-          items:
-            type: string
-            format: uri
-          description: URLs of auction item images
-        createdAt:
+          description: ID of the auction, used to reference it in further requests
+          example: 83a6bdbd-dcf5-43ad-a476-5d43de8285ea
+        auctionHouseUri:
+          type: string
+          format: uri
+          description: URI of the auction house hosting the auction
+          example: "http://group12.pitas.scs.unisg.ch:8080/"
+        jobType:
+          type: string
+          description: JobType for the auction
+        deadline:
           type: string
           format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    CreateAuctionRequest:
-      type: object
-      required:
-        - title
-        - description
-        - startingPrice
-        - startTime
-        - endTime
-      properties:
-        title:
-          type: string
-          minLength: 3
-          maxLength: 200
-        description:
-          type: string
-          minLength: 10
-          maxLength: 2000
-        startingPrice:
-          type: number
-          format: double
-          minimum: 0
-        startTime:
-          type: string
-          format: date-time
-        endTime:
-          type: string
-          format: date-time
-        images:
-          type: array
-          items:
-            type: string
-            format: uri
-          maxItems: 10
-
-    UpdateAuctionRequest:
-      type: object
-      properties:
-        title:
-          type: string
-          minLength: 3
-          maxLength: 200
-        description:
-          type: string
-          minLength: 10
-          maxLength: 2000
-        endTime:
-          type: string
-          format: date-time
-        images:
-          type: array
-          items:
-            type: string
-            format: uri
-          maxItems: 10
+          description: Deadline for bidding in this auction
+          example: "2025-11-30T16:42:12.69Z"
 
     Bid:
       type: object
       required:
-        - id
         - auctionId
-        - bidderId
-        - amount
-        - timestamp
+        - bidderName
+        - bidderAuctionHouseUri
       properties:
-        id:
-          type: string
-          format: uuid
         auctionId:
           type: string
           format: uuid
-        bidderId:
-          type: string
-          format: uuid
+          description: ID of the auction this bid is for
+          example: 83a6bdbd-dcf5-43ad-a476-5d43de8285ea
         bidderName:
           type: string
-          description: Name of the bidder
-        amount:
-          type: number
-          format: double
-          minimum: 0
-        timestamp:
+          description: Name of the bidding group
+          example: "group42"
+        bidderAuctionHouseUri:
           type: string
-          format: date-time
+          format: uri
+          description: URI of the bidders auction house, used to assign job
 
-    PlaceBidRequest:
+    Job:
       type: object
       required:
-        - amount
+        - auctionId
+        - auctionHouseUri
+        - jobType
+        - status
       properties:
-        amount:
-          type: number
-          format: double
-          minimum: 0
-          description: Bid amount (must be higher than current price)
-
-    User:
-      type: object
-      required:
-        - id
-        - email
-        - username
-      properties:
-        id:
+        auctionId:
           type: string
           format: uuid
-        email:
+          description: ID of the auction this job is from
+          example: 83a6bdbd-dcf5-43ad-a476-5d43de8285ea
+        auctionHouseUri:
           type: string
-          format: email
-        username:
+          format: uri
+          description: URI of the auction house hosting the auction
+          example: "http://group12.pitas.scs.unisg.ch:8080/"
+        jobType:
           type: string
-        firstName:
+          description: Job type
+        status:
           type: string
-        lastName:
+          enum: [OPEN, EXECUTED, FAILED]
+        inputData:
           type: string
-        createdAt:
+          description: Optional input data for job
+        outputData:
           type: string
-          format: date-time
-
-    LoginRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          format: password
-          minLength: 8
-
-    RegisterRequest:
-      type: object
-      required:
-        - email
-        - password
-        - username
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          format: password
-          minLength: 8
-        username:
-          type: string
-          minLength: 3
-          maxLength: 30
-        firstName:
-          type: string
-        lastName:
-          type: string
-
-    AuthResponse:
-      type: object
-      required:
-        - token
-        - user
-      properties:
-        token:
-          type: string
-          description: JWT access token
-        user:
-          $ref: '#/components/schemas/User'
-
-    Pagination:
-      type: object
-      properties:
-        page:
-          type: integer
-          example: 1
-        limit:
-          type: integer
-          example: 20
-        total:
-          type: integer
-          example: 100
-        totalPages:
-          type: integer
-          example: 5
-
+          description: "Result of job: result of job if status EXECUTED, error message if status FAILED"
+    
     Error:
       type: object
       required:
@@ -613,17 +296,6 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             message: "Invalid input data"
-            code: "BAD_REQUEST"
-
-    Unauthorized:
-      description: Unauthorized - authentication required
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            message: "Authentication required"
-            code: "UNAUTHORIZED"
 
     NotFound:
       description: Resource not found
@@ -633,7 +305,6 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             message: "Resource not found"
-            code: "NOT_FOUND"
 
     InternalServerError:
       description: Internal server error
@@ -643,4 +314,3 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             message: "An unexpected error occurred"
-            code: "INTERNAL_SERVER_ERROR"
