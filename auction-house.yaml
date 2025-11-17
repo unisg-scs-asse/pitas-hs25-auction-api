@@ -67,6 +67,7 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  
   /auctions/{auctionId}/job:
     post:
       tags:
@@ -75,6 +76,13 @@ paths:
       description: The bid for a specific auction was won. The auctionId is specified in the request body
       parameters:
         - $ref: '#/components/parameters/ApiVersion'
+        - name: auctionId
+          in: path
+          required: true
+          description: Unique identifier of the auction
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -94,6 +102,7 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  
   /auctions/{auctionId}/bid:
     post:
       tags:
@@ -102,6 +111,13 @@ paths:
       description: Place a new bid for the specified auction. The auctionId is specified in the request body.
       parameters:
         - $ref: '#/components/parameters/ApiVersion'
+        - name: auctionId
+          in: path
+          required: true
+          description: Unique identifier of the auction
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -156,6 +172,13 @@ paths:
       description: The bid for a specific auction was won. The auctionId is specified in the request body
       parameters:
         - $ref: '#/components/parameters/ApiVersion'
+        - name: auctionId
+          in: path
+          required: true
+          description: Unique identifier of the auction
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -192,7 +215,6 @@ components:
       type: object
       required:
         - status
-        - auctionId
         - auctionHouseUri
         - jobType
         - deadline
@@ -223,7 +245,6 @@ components:
     Bid:
       type: object
       required:
-        - auctionId
         - bidderName
         - bidderAuctionHouseUri
       properties:
@@ -245,7 +266,6 @@ components:
       type: object
       required:
         - auctionId
-        - auctionHouseUri
         - jobType
         - status
       properties:
