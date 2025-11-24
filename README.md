@@ -35,7 +35,7 @@ In order to allow groups to test the system easily, a shared job type is defined
 }
 ```
 
-## Hypermedia Links Implemenation
+## Hypermedia Links Implementation
 
 **In short**:
 
