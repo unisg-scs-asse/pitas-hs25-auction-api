@@ -50,15 +50,3 @@ In order to allow groups to test the system easily, a shared job type is defined
 **Available Relations**:
 
 - `relation`: Indicates a generic link between resources in the hypermedia API. This relation can be used to express connections or associations between nodes or entities, where a more specific relation type is not applicable.
-
-**Example Usage**:
-
-```json
-{
-  "links": [
-    {
-      "rel": "relation",
-      "href": "https://api.example.com/node/123"
-    }
-  ]
-}
