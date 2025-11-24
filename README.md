@@ -40,7 +40,7 @@ In order to allow groups to test the system easily, a shared job type is defined
 **In short**:
 
 - Every group has the following group as entry node (eg. group1 -> group2 -> ... -> groupN -> group1)
-- Each group exposes the `/discovery` endpoint which returns a list of all known nodes. Including their own node as well. See [API Spec](discovery-service.yaml) for details.
+- Each group exposes the `/discovery` endpoint which returns a list of all known nodes. Including their own node as well. See [API Spec](auction-house.yaml) for details.
 - Each group is responsible to proactively maintain the list of nodes and not compute it on request.
 
 **Assumptions**:
