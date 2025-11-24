@@ -6,7 +6,7 @@ The OpenAPI document is automatically rendered to GitHub Pages.
 
 ## API Versioning
 
-The used API version is passed with each request as the header `X-API-Version`. If the implementation does not support the version, HTTP error `400` shall be returned
+The API version is specified in the request and response payloads using a `version` field. Clients should include the `version` field in their requests, and servers should respond with the corresponding `version` field. If the implementation does not support the requested version, an HTTP error `400` shall be returned.
 
 ## Shared Job Type
 
