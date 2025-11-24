@@ -1,0 +1,172 @@
+openapi: 3.0.1
+info:
+  title: "Hypermedia Discovery Service API"
+  description: |
+    API specification for hypermedia-based discovery of auction feeds in the PITAS ecosystem.
+    Groups expose an overlay node with links to related groups and their auction feeds.
+  version: "1"
+  license:
+    name: "GPL-3.0-only"
+    url: "https://opensource.org/license/gpl-3-0"
+
+servers:
+  - url: "http://localhost:8080/"
+    description: Local Development
+
+tags:
+  - name: Overlay
+    description: Hypermedia overlay for discovery
+
+paths:
+  /discovery:
+    get:
+      tags:
+        - Overlay
+      summary: Get overlay node
+      description: |
+        Returns this group's node in the hypermedia overlay with links to related groups.
+        Use Link headers or embedded links to discover other groups and their auction feeds.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayNode'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Overlay
+      summary: Register in the overlay
+      description: |
+        Proactively register this group in another group's hypermedia overlay.
+        This allows a new group to announce itself and its capabilities to existing groups.
+      parameters:
+        - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '201':
+          description: Successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Link'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    ApiVersion:
+      name: X-API-Version
+      in: header
+      required: true
+      description: API version
+      schema:
+        type: string
+        example: "1"
+  
+  schemas:
+    OverlayNode:
+      type: object
+      required:
+        - nodes
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    Link:
+      type: object
+      required:
+        - href
+        - rel
+        - auctionFeedUri
+        - hints
+      properties:
+        href:
+          type: string
+          format: uri
+          description: URI of the linked resource
+          example: "http://group5.pitas.scs.unisg.ch:8080/overlay"
+        auctionFeedUri:
+          type: string
+          format: uri
+          description: URI of this group's auction feed
+          example: "http://group5.pitas.scs.unisg.ch:8080/auctions/feed"
+        rel:
+          type: string
+          description: Link relation (e.g., "related")
+          example: "related"
+        hints:
+          type: array
+          items: 
+            type: string
+            example: "entertainment"
+          description: Hint annotations (e.g., supported worker operations)
+
+    RegistrationRequest:
+      type: object
+      required:
+        - href
+        - auctionFeedUri
+        - hints
+      properties:
+        href:
+          type: string
+          format: uri
+          description: URI of the registering group's discovery endpoint
+          example: "http://group12.pitas.scs.unisg.ch:8080/discovery"
+        auctionFeedUri:
+          type: string
+          format: uri
+          description: URI of the registering group's auction feed
+          example: "http://group12.pitas.scs.unisg.ch:8080/auctions/feed"
+        hints:
+          type: array
+          items:
+            type: string
+          description: Hint annotations describing capabilities
+          example: ["entertainment", "computing"]
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "Invalid registration data"
+    
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "An unexpected error occurred"
