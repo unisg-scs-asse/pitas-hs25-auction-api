@@ -1,14 +1,16 @@
 openapi: 3.1.1
 info:
   title: "Auction API"
-  description: "API specification for the auction platform"
-  version: "1"
+  description: "Synchronous API specification for the PITAS auction house"
+  version: "1.1"
   license:
     name: "GPL-3.0-only"
     url: "https://opensource.org/license/gpl-3-0"
 
 servers:
-  - url: "http://localhost:8080/"
+  - url: "https://app.${PUB_IP}.asse.scs.unisg.ch"
+    description: Remote Development
+  - url: "http://localhost:8090/"
     description: Local Development
 
 tags:
@@ -16,6 +18,8 @@ tags:
     description: Auction management endpoints. From the perspective of an auctioneer.
   - name: Bidders
     description: Bidder management endpoints. From the prespective of a bidder.
+  - name: Discovery
+    description: Discovery endpoints for finding other auction houses.
 
 paths:
   /auctions:
@@ -24,22 +28,15 @@ paths:
         - Auctions
       summary: Retrieve open auctions
       description: Retrieve a list of all open auctions from this group
-      parameters:
-        - $ref: '#/components/parameters/ApiVersion'
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  auctions:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Auction'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/AuctionListPayload"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /auctions/{auctionId}:
     get:
@@ -48,7 +45,6 @@ paths:
       summary: Retrieve auction
       description: Retrieve one auction
       parameters:
-        - $ref: '#/components/parameters/ApiVersion'
         - name: auctionId
           in: path
           required: true
@@ -57,17 +53,17 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Auction'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-  
+                $ref: "#/components/schemas/AuctionPayload"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /auctions/{auctionId}/job:
     post:
       tags:
@@ -75,7 +71,6 @@ paths:
       summary: Job executed
       description: The bid for a specific auction was won. The auctionId is specified in the request body
       parameters:
-        - $ref: '#/components/parameters/ApiVersion'
         - name: auctionId
           in: path
           required: true
@@ -88,21 +83,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Job'
+              $ref: "#/components/schemas/JobPayload"
       responses:
-        '201':
+        "201":
           description: Accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Job'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-  
+                $ref: "#/components/schemas/JobPayload"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /auctions/{auctionId}/bid:
     post:
       tags:
@@ -110,7 +105,6 @@ paths:
       summary: Place bid for auction
       description: Place a new bid for the specified auction. The auctionId is specified in the request body.
       parameters:
-        - $ref: '#/components/parameters/ApiVersion'
         - name: auctionId
           in: path
           required: true
@@ -123,20 +117,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Bid'
+              $ref: "#/components/schemas/BidPayload"
       responses:
-        '201':
+        "201":
           description: Bid placed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Bid'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/BidPayload"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /bidders:
     post:
@@ -144,25 +138,23 @@ paths:
         - Bidders
       summary: Auction started
       description: Notification from other group that a new auction started
-      parameters:
-        - $ref: '#/components/parameters/ApiVersion'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Auction'
+              $ref: "#/components/schemas/AuctionPayload"
       responses:
-        '201':
+        "201":
           description: Auction created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Auction'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/AuctionPayload"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /bidders/{auctionId}/job:
     post:
@@ -171,7 +163,6 @@ paths:
       summary: Bid for auction won
       description: The bid for a specific auction was won. The auctionId is specified in the request body
       parameters:
-        - $ref: '#/components/parameters/ApiVersion'
         - name: auctionId
           in: path
           required: true
@@ -184,33 +175,202 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Job'
+              $ref: "#/components/schemas/JobPayload"
       responses:
-        '201':
+        "201":
           description: Accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Job'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/JobPayload"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /discovery:
+    get:
+      tags:
+        - Discovery
+      summary: Retrieve known auction houses
+      description: |
+        Retrieve a list of known auction houses for the specified group type.
+        Returns an object containing the group type and a list of auction house URIs.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryHostsPayload"
+              example:
+                version: 1
+                data:
+                  type: "EVEN"
+                  hosts:
+                    - auctionHouseUri: "https://app.192.168.1.10.asse.scs.unisg.ch"
+                    - auctionHouseUri: "https://app.192.168.1.20.asse.scs.unisg.ch"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags:
+        - Discovery
+      summary: Register auction house
+      description: |
+        Register this auction house with the discovery service.
+        Allows a group to announce itself to the discovery overlay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoveryRegistrationPayload"
+            example:
+              version: 1
+              data:
+                type: "ODD"
+                auctionHouseUri: "https://app.192.168.1.30.asse.scs.unisg.ch"
+      responses:
+        "201":
+          description: Successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryRegistrationPayload"
+              example:
+                version: 1
+                data:
+                  type: "ODD"
+                  auctionHouseUri: "https://app.192.168.1.30.asse.scs.unisg.ch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
 components:
-  parameters:
-    ApiVersion:
-      name: X-API-Version
-      in: header
-      required: true
-      description: API version
-      schema:
-        type: string
-        example: "1"
-  
   schemas:
+    PayloadBase:
+      type: object
+      required:
+        - version
+        - data
+      properties:
+        version:
+          type: integer
+          description: API version carried in the payload
+          example: 1
+        data:
+          type: object
+          description: Domain data for this payload
+
+    AuctionPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Auction"
+
+    BidPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Bid"
+
+    JobPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Job"
+
+    AuctionListPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                auctions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Auction"
+    ErrorPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Error"
+
+    DiscoveryHostsPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DiscoveryHosts"
+
+    DiscoveryRegistrationPayload:
+      allOf:
+        - $ref: "#/components/schemas/PayloadBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DiscoveryRegistration"
+
+    DiscoveryHosts:
+      type: object
+      required:
+        - type
+        - hosts
+      properties:
+        type:
+          type: string
+          enum: [EVEN, ODD]
+          description: Group type identifier
+          example: "EVEN"
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscoveryHost"
+          description: List of discovered auction house URIs
+
+    DiscoveryRegistration:
+      type: object
+      required:
+        - type
+        - auctionHouseUri
+      properties:
+        type:
+          type: string
+          enum: [EVEN, ODD]
+          description: Group type identifier
+          example: "ODD"
+        auctionHouseUri:
+          type: string
+          format: uri
+          description: URI of the auction house being registered
+          example: "https://app.192.168.1.30.asse.scs.unisg.ch"
+
+    DiscoveryHost:
+      type: object
+      required:
+        - auctionHouseUri
+      properties:
+        auctionHouseUri:
+          type: string
+          format: uri
+          description: URI of a discovered auction house
+          example: "https://app.192.168.1.10.asse.scs.unisg.ch"
+
     Auction:
       type: object
       required:
@@ -232,7 +392,7 @@ components:
           type: string
           format: uri
           description: URI of the auction house hosting the auction
-          example: "http://group12.pitas.scs.unisg.ch:8080/"
+          example: "https://group12.pitas.scs.unisg.ch:8080/"
         jobType:
           type: string
           description: JobType for the auction
@@ -278,7 +438,7 @@ components:
           type: string
           format: uri
           description: URI of the auction house hosting the auction
-          example: "http://group12.pitas.scs.unisg.ch:8080/"
+          example: "https://group12.pitas.scs.unisg.ch:8080/"
         jobType:
           type: string
           description: Job type
@@ -291,7 +451,7 @@ components:
         outputData:
           type: string
           description: "Result of job: result of job if status EXECUTED, error message if status FAILED"
-    
+
     Error:
       type: object
       required:
@@ -313,24 +473,30 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/ErrorPayload"
           example:
-            message: "Invalid input data"
+            version: 1
+            data:
+              message: "Invalid input data"
 
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/ErrorPayload"
           example:
-            message: "Resource not found"
+            version: 1
+            data:
+              message: "Resource not found"
 
     InternalServerError:
       description: Internal server error
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/ErrorPayload"
           example:
-            message: "An unexpected error occurred"
+            version: 1
+            data:
+              message: "An unexpected error occurred"
