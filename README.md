@@ -35,23 +35,6 @@ In order to allow groups to test the system easily, a shared job type is defined
 }
 ```
 
-## Hypermedia Links Implementation
-
-**In short**:
-
-- Every group has the following group as entry node (eg. group1 -> group2 -> ... -> groupN -> group1)
-- Each group exposes the `/discovery` endpoint which returns a list of all known nodes. Including their own node as well. See [API Spec](auction-house.yaml) for details.
-- Each group is responsible to proactively maintain the list of nodes and not compute it on request.
-
-**Assumptions**:
-
-- Nodes stay online forever (e.g. they do not disappear). It's the responsibility of each group if they want to check if a node is still online.
-
-**Available Relations**:
-
-- `relation`: Indicates a generic link between resources in the hypermedia API. This relation can be used to express connections or associations between nodes or entities, where a more specific relation type is not applicable.
-
-
 
 ## Hypermedia Links (Exercise 9)
 
@@ -80,13 +63,13 @@ EVEN Ring: Group2 → Group4 → Group6 → Group8 → Group2
 
 ## Required Endpoints
 
-### GET /auctions/
+### GET /auctions
 
 Returns open auctions with hypermedia Link headers.
 
 **Response Headers:**
 ```http
-Link: <https://websub.appspot.com/>; rel="hub"
+Link: <https://switchboard.p3k.io/>; rel="hub"
 Link: <https://my-auction-house.com/auctions/>; rel="self"
 Link: <https://next-group.com/auctions/>; rel="relation"; type="ODD"
 X-Application-Area: ODD
@@ -96,37 +79,9 @@ X-Application-Area: ODD
 
 Returns known nodes of the same application type.
 
-**Response:**
-```json
-{
-  "version": 1,
-  "data": {
-    "type": "ODD",
-    "hosts": [
-      { "auctionHouseUri": "https://group1.example.com/" },
-      { "auctionHouseUri": "https://group3.example.com/" }
-    ]
-  }
-}
-```
-
 ### POST /discovery
 
 Registers a new auction house (same type only).
-
-**Request:**
-```json
-{
-  "version": 1,
-  "data": {
-    "type": "ODD",
-    "auctionHouseUri": "https://new-group.example.com/"
-  }
-}
-```
-
-**Success:** `201 Created`
-**Type Mismatch:** `400 Bad Request`
 
 ---
 
