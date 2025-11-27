@@ -4,6 +4,7 @@ Lightweight Auction Test Client
 A simple service that automatically bids on auctions and executes jobs when it wins.
 """
 
+import json
 import logging
 import os
 import threading
@@ -11,6 +12,7 @@ import time
 from datetime import datetime
 from typing import Optional, Set
 
+import paho.mqtt.client as mqtt
 import requests
 from flask import Flask, request, jsonify
 
@@ -27,12 +29,96 @@ AUCTION_HOUSE_BASE_URL = os.getenv("AUCTION_HOUSE_BASE_URL", "http://localhost:8
 TEST_CLIENT_BASE_URL = os.getenv("TEST_CLIENT_BASE_URL", "http://localhost:8091")
 TEST_CLIENT_NAME = os.getenv("TEST_CLIENT_NAME", "test-client")
 TEST_CLIENT_PORT = int(os.getenv("TEST_CLIENT_PORT", "8091"))
+SUPPORTED_JOB_TYPES = {
+    jt.strip() for jt in os.getenv("SUPPORTED_JOB_TYPES", "testJob").split(",") if jt.strip()
+}
+
+MQTT_ENABLED = os.getenv("MQTT_ENABLED", "true").lower() == "true"
+MQTT_BROKER = os.getenv("MQTT_BROKER", "broker.hivemq.com")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "ch/unisg/pitas/auctions/#")
+MQTT_USERNAME = os.getenv("MQTT_USERNAME")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 
 # Store active jobs we're executing
 active_jobs = {}
 
 # Track auctions we've already bid on (to avoid duplicate bids)
 auctions_bid_on: Set[str] = set()
+
+mqtt_client: Optional[mqtt.Client] = None
+
+
+def ensure_trailing_slash(value: str) -> str:
+    if not value.endswith("/"):
+        return value + "/"
+    return value
+
+
+def is_supported_job(job_type: Optional[str]) -> bool:
+    if not job_type:
+        return False
+    return not SUPPORTED_JOB_TYPES or job_type in SUPPORTED_JOB_TYPES
+
+
+def start_mqtt_listener():
+    if not MQTT_ENABLED:
+        logger.info("MQTT listener disabled via environment variable")
+        return
+
+    client = mqtt.Client(client_id=f"{TEST_CLIENT_NAME}-mqtt")
+    if MQTT_USERNAME and MQTT_PASSWORD:
+        client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+
+    def on_connect(_client, _userdata, _flags, rc, _properties=None):
+        if rc == 0:
+            logger.info(f"Connected to MQTT broker {MQTT_BROKER}:{MQTT_PORT}, subscribing to {MQTT_TOPIC}")
+            _client.subscribe(MQTT_TOPIC)
+        else:
+            logger.error(f"MQTT connection failed with rc={rc}")
+
+    def on_message(_client, _userdata, message):
+        handle_mqtt_message(message.topic, message.payload)
+
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    while True:
+        try:
+            client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+            client.loop_forever()
+        except Exception as exc:
+            logger.error(f"MQTT loop terminated: {exc}. Reconnecting in 5s")
+            time.sleep(5)
+
+
+def handle_mqtt_message(topic: str, payload: bytes):
+    try:
+        data = json.loads(payload.decode("utf-8"))
+        auction = data.get("data", {}).get("auction")
+        if not auction:
+            return
+
+        auction_id = auction.get("auctionId")
+        job_type = auction.get("jobType")
+        if not auction_id or auction_id in auctions_bid_on or not is_supported_job(job_type):
+            return
+
+        auction_house_uri = ensure_trailing_slash(auction.get("auctionHouseUri", AUCTION_HOUSE_BASE_URL))
+        logger.info(
+            f"MQTT: discovered auction {auction_id} (jobType={job_type}) on topic {topic}. Placing bid."
+        )
+        place_bid_on_auction(
+            {
+                "auctionId": auction_id,
+                "auctionHouseUri": auction_house_uri,
+                "jobType": job_type,
+                "status": auction.get("status", "OPEN"),
+            }
+        )
+        auctions_bid_on.add(auction_id)
+    except json.JSONDecodeError:
+        logger.warning("Received invalid MQTT payload: %s", payload[:200])
 
 
 @app.route("/health", methods=["GET"])
@@ -141,19 +227,22 @@ def handle_job_assignment(auction_id: str):
 
             if response.status_code == 201:
                 logger.info(f"Successfully sent job result for auction {auction_id}")
-                # Clean up
                 if auction_id in active_jobs:
                     del active_jobs[auction_id]
             else:
                 logger.error(
-                    f"Failed to send job result: status={response.status_code}, body={response.text}"
+                    "Failed to send job result: status=%s body=%s payload=%s",
+                    response.status_code,
+                    response.text,
+                    json.dumps(result_payload),
                 )
+                return jsonify({"error": "Failed to send job result"}), 500
         except requests.exceptions.RequestException as e:
             logger.error(
                 f"Exception while sending job result to {result_url}: {e}",
                 exc_info=True,
             )
-            raise
+            return jsonify({"error": str(e)}), 500
 
         # Return the job representation
         return jsonify(result_payload), 201
@@ -225,13 +314,15 @@ def poll_for_auctions():
                     status = auction.get("status")
 
                     # Only bid on open auctions we haven't bid on yet
+                    job_type = auction.get("jobType")
                     if (
                         status == "OPEN"
                         and auction_id
                         and auction_id not in auctions_bid_on
+                        and is_supported_job(job_type)
                     ):
                         logger.info(
-                            f"Found new open auction: {auction_id} (jobType: {auction.get('jobType', 'unknown')})"
+                            f"Found new open auction: {auction_id} (jobType: {job_type})"
                         )
                         place_bid_on_auction(auction)
                         auctions_bid_on.add(auction_id)
@@ -257,9 +348,16 @@ def place_bid_on_auction(auction: dict):
     try:
         auction_id = auction.get("auctionId")
         auction_house_uri = auction.get("auctionHouseUri")
+        job_type = auction.get("jobType")
 
         if not auction_id or not auction_house_uri:
             logger.warning(f"Invalid auction data: {auction}")
+            return
+
+        if not is_supported_job(job_type):
+            logger.info(
+                f"Skipping auction {auction_id} because jobType '{job_type}' is not supported"
+            )
             return
 
         bid_payload = {
@@ -268,7 +366,7 @@ def place_bid_on_auction(auction: dict):
             "bidderAuctionHouseUri": TEST_CLIENT_BASE_URL + "/",
         }
 
-        bid_url = f"{auction_house_uri}auctions/{auction_id}/bid"
+        bid_url = f"{ensure_trailing_slash(auction_house_uri)}auctions/{auction_id}/bid"
         logger.info(f"Placing bid on auction {auction_id} at {bid_url}")
 
         response = requests.post(
@@ -295,6 +393,12 @@ if __name__ == "__main__":
     logger.info(f"  Base URL: {TEST_CLIENT_BASE_URL}")
     logger.info(f"  Auction House URL: {AUCTION_HOUSE_BASE_URL}")
     logger.info(f"  Listening on port {TEST_CLIENT_PORT}")
+    logger.info(
+        f"  Supported job types: {', '.join(sorted(SUPPORTED_JOB_TYPES)) if SUPPORTED_JOB_TYPES else 'all'}"
+    )
+    logger.info(
+        f"  MQTT: {'enabled' if MQTT_ENABLED else 'disabled'} (broker={MQTT_BROKER}:{MQTT_PORT}, topic={MQTT_TOPIC})"
+    )
 
     # Start polling thread for discovering auctions
     poll_interval = int(os.getenv("POLL_INTERVAL_SECONDS", "5"))
@@ -302,5 +406,9 @@ if __name__ == "__main__":
 
     polling_thread = threading.Thread(target=poll_for_auctions, daemon=True)
     polling_thread.start()
+
+    if MQTT_ENABLED:
+        mqtt_thread = threading.Thread(target=start_mqtt_listener, daemon=True)
+        mqtt_thread.start()
 
     app.run(host="0.0.0.0", port=TEST_CLIENT_PORT, debug=False)

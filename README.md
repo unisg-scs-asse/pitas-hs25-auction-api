@@ -48,3 +48,15 @@ docker compose -f docker-compose.test-v1.yaml up --build -d
 ```
 
 The test client will start polling the auction house at the configured interval (default: 5 seconds, configurable via `POLL_INTERVAL_SECONDS` environment variable) and automatically bid on any new open auctions it discovers.
+
+In addition to HTTP polling, the client now subscribes to the shared MQTT topic `ch/unisg/pitas/auctions/#` (configurable via `MQTT_TOPIC`). Whenever your auction house publishes a new auction over MQTT, the client immediately places a REST bid using the uniform API. When it wins, it executes the job (simulated response) and posts the job result back to `/auctions/{auctionId}/job`, exercising the full workflow end-to-end.
+
+Environment variables of interest:
+
+| Variable | Description |
+| --- | --- |
+| `SUPPORTED_JOB_TYPES` | Comma-separated list of job types this emulator accepts (defaults to `testJob`). |
+| `MQTT_ENABLED` | Toggle MQTT listener (defaults to `true`). |
+| `MQTT_BROKER` / `MQTT_PORT` / `MQTT_TOPIC` | HiveMQ endpoint and topic filter, defaults match the shared broker. |
+
+Run `docker compose -f docker-compose.test-v1.yaml logs -f` to observe each step: MQTT discovery, HTTP bid, job assignment, and job result callback.

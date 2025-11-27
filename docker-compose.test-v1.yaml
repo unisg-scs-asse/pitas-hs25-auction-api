@@ -4,10 +4,22 @@ services:
       context: ./auction-test-client
       dockerfile: Dockerfile
     environment:
-      - AUCTION_HOUSE_BASE_URL=http://host.docker.internal:8090
-      - TEST_CLIENT_BASE_URL=http://host.docker.internal:8091
+      - AUCTION_HOUSE_BASE_URL=http://pitas-auction-house:8090
+      - TEST_CLIENT_BASE_URL=http://auction-test-client:8091
       - TEST_CLIENT_NAME=test-client
       - TEST_CLIENT_PORT=8091
       - POLL_INTERVAL_SECONDS=5
+      - MQTT_ENABLED=true
+      - MQTT_BROKER=broker.hivemq.com
+      - MQTT_PORT=1883
+      - MQTT_TOPIC=ch/unisg/pitas/auctions/#
+      - SUPPORTED_JOB_TYPES=computation,testJob
     ports:
       - "8091:8091"
+    networks:
+      - pitas-network
+
+networks:
+  pitas-network:
+    external: true
+    name: pitas-hs25-group3_pitas-network
