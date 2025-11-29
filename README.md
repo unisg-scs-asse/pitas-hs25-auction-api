@@ -111,3 +111,11 @@ In order to allow groups to test the system easily, a shared job type is defined
 **Available Relations**:
 
 - `relation`: Indicates a generic link between resources in the hypermedia API. This relation can be used to express connections or associations between nodes or entities, where a more specific relation type is not applicable.
+
+## Test Client
+
+The `auction-test-client` is a lightweight test service that automatically interacts with the auction house API for testing purposes.
+
+### Deployment
+
+See [DOCKER_README.md](auction-test-client/DOCKER_README.md) for Docker-based deployment and usage instructions.
