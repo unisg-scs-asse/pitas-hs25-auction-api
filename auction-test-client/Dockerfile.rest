@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+COPY test_rest.py .
 
 EXPOSE 8091
 
@@ -15,6 +15,6 @@ ENV TEST_CLIENT_NAME=test-client
 ENV TEST_CLIENT_PORT=8091
 ENV POLL_INTERVAL_SECONDS=5
 
-CMD ["python", "app.py"]
+CMD ["python", "test_rest.py"]
 
 

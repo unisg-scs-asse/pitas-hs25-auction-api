@@ -1,0 +1,29 @@
+services:
+  # Discovery endpoint tests
+  discovery-test:
+    build:
+      context: ./auction-test-client
+      dockerfile: Dockerfile.discovery
+    environment:
+      - AUCTION_HOUSE_BASE_URL=http://localhost:8090
+      - TEST_CLIENT_URI=http://localhost:8092
+      - GROUP_TYPE=EVEN
+    network_mode: "host"
+    profiles:
+      - discovery-test
+
+  # Bidding and job execution test client (continuous)
+  auction-test-client:
+    build:
+      context: ./auction-test-client
+      dockerfile: Dockerfile.rest
+    environment:
+      - AUCTION_HOUSE_BASE_URL=http://host.docker.internal:8090
+      - TEST_CLIENT_BASE_URL=http://host.docker.internal:8091
+      - TEST_CLIENT_NAME=test-client
+      - TEST_CLIENT_PORT=8091
+      - POLL_INTERVAL_SECONDS=5
+    ports:
+      - "8091:8091"
+    profiles:
+      - auction-test
