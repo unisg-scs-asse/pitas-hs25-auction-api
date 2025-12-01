@@ -170,10 +170,14 @@ def handle_job_assignment(auction_id: str):
     Receives the job assignment and executes it.
     """
     try:
-        data = request.get_json()
-        job_type = data.get("jobType")
-        input_data = data.get("inputData")
-        auction_house_uri = data.get("auctionHouseUri")
+        payload = request.get_json() or {}
+        job_data = unwrap_payload(payload)
+        if not isinstance(job_data, dict):
+            job_data = {}
+
+        job_type = job_data.get("jobType")
+        input_data = job_data.get("inputData")
+        auction_house_uri = job_data.get("auctionHouseUri") or AUCTION_HOUSE_BASE_URL
 
         logger.info(
             f"Received job assignment for auction {auction_id}: jobType={job_type}, inputData={input_data}"
@@ -196,7 +200,7 @@ def handle_job_assignment(auction_id: str):
         output_data = execute_job(job_type, input_data)
 
         # Send job result back to the auction house
-        result_payload = {
+        result_body = {
             "auctionId": auction_id,
             "auctionHouseUri": auction_house_uri,
             "jobType": job_type,
@@ -204,6 +208,7 @@ def handle_job_assignment(auction_id: str):
             "inputData": input_data,
             "outputData": output_data,
         }
+        result_payload = {"version": 1, "data": result_body}
 
         # Ensure auction_house_uri has a trailing slash, then construct URL properly
         if not auction_house_uri.endswith("/"):
@@ -281,6 +286,13 @@ def status():
     )
 
 
+def unwrap_payload(body):
+    """Return the value of the 'data' field if present, otherwise the body itself."""
+    if isinstance(body, dict) and "data" in body:
+        return body.get("data")
+    return body
+
+
 def poll_for_auctions():
     """
     Poll the auction house for open auctions and automatically bid on them.
@@ -305,7 +317,20 @@ def poll_for_auctions():
             )
 
             if response.status_code == 200:
-                auctions = response.json()
+                payload = response.json()
+                data_section = unwrap_payload(payload)
+                auctions = []
+                if isinstance(data_section, dict):
+                    auctions = data_section.get("auctions", [])
+                elif isinstance(payload, list):
+                    auctions = payload
+
+                if not isinstance(auctions, list):
+                    logger.warning(
+                        "Auction list response has unexpected shape: %s", payload
+                    )
+                    auctions = []
+
                 logger.debug(f"Received {len(auctions)} auctions from auction house")
 
                 # Process each auction
@@ -360,11 +385,12 @@ def place_bid_on_auction(auction: dict):
             )
             return
 
-        bid_payload = {
+        bid_body = {
             "auctionId": auction_id,
             "bidderName": TEST_CLIENT_NAME,
             "bidderAuctionHouseUri": TEST_CLIENT_BASE_URL + "/",
         }
+        bid_payload = {"version": 1, "data": bid_body}
 
         bid_url = f"{ensure_trailing_slash(auction_house_uri)}auctions/{auction_id}/bid"
         logger.info(f"Placing bid on auction {auction_id} at {bid_url}")

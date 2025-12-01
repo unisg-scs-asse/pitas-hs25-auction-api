@@ -30,7 +30,7 @@ From `../pitas-hs25-auction-api`:
 cd ../pitas-hs25-auction-api
 docker compose -f docker-compose.test-v1.yaml up --build
 ```
-This container emulates the external auction house: it subscribes to `ch/unisg/pitas/auctions/#`, filters job types defined via `SUPPORTED_JOB_TYPES`, bids on every discovered auction using REST (`POST /auctions/{id}/bid`), and posts job results back to `/auctions/{id}/job`. Because it shares the Docker network, all URLs inside MQTT payloads (`http://pitas-auction-house:8090/...`, `http://pitas-jobs:8081/...`) resolve without extra host aliases.
+This container emulates the external auction house: it subscribes to `ch/unisg/pitas/auctions/#`, filters job types defined via `SUPPORTED_JOB_TYPES`, bids on every discovered auction using REST (`POST /auctions/{id}/bid`), and posts job results back to `/auctions/{id}/job`. Because it shares the Docker network, all URLs inside MQTT payloads (`http://pitas-auction-house:8090/...`, `http://pitas-jobs:8081/...`) resolve without extra host aliases. All HTTP calls now follow the task-force payload envelope, i.e. bodies look like `{"version":1,"data":{...}}`. Keep that in mind if you curl the endpoints manually.
 
 ## 3. Create a job the idle worker **cannot** execute
 Back in `pitas-hs25-group3`, create a `computation` job so the scheduler fails (because the workers are offline):
@@ -55,15 +55,18 @@ docker compose -f docker-compose-local.yml logs -f scheduler | rg --line-buffere
 ```
 When triggered, the scheduler POSTs to the internal auction house (`http://pitas-auction-house:8090/auctions/` from inside Docker) with the job URI.
 
-If you want to trigger the auction manually from the host (e.g., when the scheduler is disabled), POST directly to the internal auction house using that job URI (replace `pitas-auction-house` with `localhost` when calling from your laptop):
+If you want to trigger the auction manually from the host (e.g., when the scheduler is disabled), POST directly to the internal auction house using that job URI (replace `pitas-auction-house` with `localhost` when calling from your laptop). The body must be wrapped with the payload envelope:
 ```bash
 curl -X POST http://localhost:8090/auctions/ \
   -H 'Content-Type: application/json' \
   -H 'X-API-Version: 1' \
   -d '{
-        "jobUri": "http://localhost:8081/jobs/{jobId}",
-        "jobType": "computation",
-        "deadline": 15000
+        "version": 1,
+        "data": {
+          "jobUri": "http://localhost:8081/jobs/{jobId}",
+          "jobType": "computation",
+          "deadline": 15000
+        }
       }'
 ```
 The auction house rejects payloads that omit `jobUri`, so make sure you substitute the exact URL from step 3.
@@ -84,8 +87,8 @@ mqtt sub -h broker.hivemq.com -t "ch/unisg/pitas/auctions/#"
 ## 6. Confirm HTTP winner notification & job execution
 After the auction deadline expires (default 10–15s):
 1. Auction house logs `Bidder test-client acknowledged win for auction …`.
-2. Emulator logs `Received job assignment …` and `Sending job result …`.
-3. Internal auction house logs `Job executed for auction …` followed by `Updated delegated job …`.
+2. Emulator logs `Received job assignment …` and `Sending job result …` (the HTTP body it receives is `{ "version": 1, "data": { ... job fields ... } }`).
+3. Internal auction house logs `Job executed for auction …` followed by `Updated delegated job …` once it processes the `{ "version": 1, "data": { ... } }` job result payload.
 
 ## 7. Validate PITAS-Jobs reflects the external result
 Fetch the job state using the URI from step 3:
