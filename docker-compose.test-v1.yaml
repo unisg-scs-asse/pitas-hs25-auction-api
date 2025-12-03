@@ -12,7 +12,7 @@ services:
       - MQTT_ENABLED=true
       - MQTT_BROKER=broker.hivemq.com
       - MQTT_PORT=1883
-      - MQTT_TOPIC=ch/unisg/pitas/auctions/#
+      - MQTT_TOPIC=ch/unisg/pitas/auctions
       - SUPPORTED_JOB_TYPES=computation,testJob
     ports:
       - "8091:8091"

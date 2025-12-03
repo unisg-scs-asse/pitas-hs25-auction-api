@@ -25,8 +25,14 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Configuration from environment variables
-AUCTION_HOUSE_BASE_URL = os.getenv("AUCTION_HOUSE_BASE_URL", "http://localhost:8090")
-TEST_CLIENT_BASE_URL = os.getenv("TEST_CLIENT_BASE_URL", "http://localhost:8091")
+def normalize_base_url(value: str) -> str:
+    if value.endswith("/"):
+        return value.rstrip("/")
+    return value
+
+
+AUCTION_HOUSE_BASE_URL = normalize_base_url(os.getenv("AUCTION_HOUSE_BASE_URL", "http://localhost:8090"))
+TEST_CLIENT_BASE_URL = normalize_base_url(os.getenv("TEST_CLIENT_BASE_URL", "http://localhost:8091"))
 TEST_CLIENT_NAME = os.getenv("TEST_CLIENT_NAME", "test-client")
 TEST_CLIENT_PORT = int(os.getenv("TEST_CLIENT_PORT", "8091"))
 SUPPORTED_JOB_TYPES = {
@@ -36,7 +42,7 @@ SUPPORTED_JOB_TYPES = {
 MQTT_ENABLED = os.getenv("MQTT_ENABLED", "true").lower() == "true"
 MQTT_BROKER = os.getenv("MQTT_BROKER", "broker.hivemq.com")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
-MQTT_TOPIC = os.getenv("MQTT_TOPIC", "ch/unisg/pitas/auctions/#")
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "ch/unisg/pitas/auctions")
 MQTT_USERNAME = os.getenv("MQTT_USERNAME")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 
@@ -49,10 +55,8 @@ auctions_bid_on: Set[str] = set()
 mqtt_client: Optional[mqtt.Client] = None
 
 
-def ensure_trailing_slash(value: str) -> str:
-    if not value.endswith("/"):
-        return value + "/"
-    return value
+def build_url(base: str, path: str) -> str:
+    return normalize_base_url(base) + "/" + path.lstrip("/")
 
 
 def is_supported_job(job_type: Optional[str]) -> bool:
@@ -104,7 +108,9 @@ def handle_mqtt_message(topic: str, payload: bytes):
         if not auction_id or auction_id in auctions_bid_on or not is_supported_job(job_type):
             return
 
-        auction_house_uri = ensure_trailing_slash(auction.get("auctionHouseUri", AUCTION_HOUSE_BASE_URL))
+        auction_house_uri = normalize_base_url(
+            auction.get("auctionHouseUri", AUCTION_HOUSE_BASE_URL)
+        )
         logger.info(
             f"MQTT: discovered auction {auction_id} (jobType={job_type}) on topic {topic}. Placing bid."
         )
@@ -177,7 +183,7 @@ def handle_job_assignment(auction_id: str):
 
         job_type = job_data.get("jobType")
         input_data = job_data.get("inputData")
-        auction_house_uri = job_data.get("auctionHouseUri") or AUCTION_HOUSE_BASE_URL
+        auction_house_uri = normalize_base_url(job_data.get("auctionHouseUri") or AUCTION_HOUSE_BASE_URL)
 
         logger.info(
             f"Received job assignment for auction {auction_id}: jobType={job_type}, inputData={input_data}"
@@ -208,12 +214,9 @@ def handle_job_assignment(auction_id: str):
             "inputData": input_data,
             "outputData": output_data,
         }
-        result_payload = {"version": 1, "data": result_body}
+        result_payload = result_body
 
-        # Ensure auction_house_uri has a trailing slash, then construct URL properly
-        if not auction_house_uri.endswith("/"):
-            auction_house_uri = auction_house_uri + "/"
-        result_url = f"{auction_house_uri}auctions/{auction_id}/job"
+        result_url = build_url(auction_house_uri, f"auctions/{auction_id}/job")
         logger.info(
             f"Sending job result to {result_url} with payload: {result_payload}"
         )
@@ -298,7 +301,7 @@ def poll_for_auctions():
     Poll the auction house for open auctions and automatically bid on them.
     This runs in a background thread.
 
-    Polls GET {AUCTION_HOUSE_BASE_URL}/auctions/ every POLL_INTERVAL_SECONDS seconds
+    Polls GET {AUCTION_HOUSE_BASE_URL}/auctions every POLL_INTERVAL_SECONDS seconds
     to discover new open auctions and automatically bid on them.
     """
     poll_interval = int(os.getenv("POLL_INTERVAL_SECONDS", "5"))
@@ -307,7 +310,7 @@ def poll_for_auctions():
     while True:
         try:
             # Get list of open auctions from the auction house
-            auctions_url = f"{AUCTION_HOUSE_BASE_URL}/auctions/"
+            auctions_url = build_url(AUCTION_HOUSE_BASE_URL, "auctions")
             logger.debug(f"Polling for auctions at {auctions_url}")
 
             response = requests.get(
@@ -372,7 +375,7 @@ def place_bid_on_auction(auction: dict):
     """
     try:
         auction_id = auction.get("auctionId")
-        auction_house_uri = auction.get("auctionHouseUri")
+        auction_house_uri = normalize_base_url(auction.get("auctionHouseUri") or AUCTION_HOUSE_BASE_URL)
         job_type = auction.get("jobType")
 
         if not auction_id or not auction_house_uri:
@@ -388,11 +391,11 @@ def place_bid_on_auction(auction: dict):
         bid_body = {
             "auctionId": auction_id,
             "bidderName": TEST_CLIENT_NAME,
-            "bidderAuctionHouseUri": TEST_CLIENT_BASE_URL + "/",
+            "bidderAuctionHouseUri": TEST_CLIENT_BASE_URL,
         }
-        bid_payload = {"version": 1, "data": bid_body}
+        bid_payload = bid_body
 
-        bid_url = f"{ensure_trailing_slash(auction_house_uri)}auctions/{auction_id}/bid"
+        bid_url = build_url(auction_house_uri, f"auctions/{auction_id}/bid")
         logger.info(f"Placing bid on auction {auction_id} at {bid_url}")
 
         response = requests.post(
